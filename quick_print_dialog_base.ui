@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>QuickPrintDialogBase</class>
+ <widget class="QDialog" name="QuickPrintDialogBase">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>431</width>
+    <height>429</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Quick Print</string>
+  </property>
+  <widget class="QDialogButtonBox" name="acceptButtons">
+   <property name="geometry">
+    <rect>
+     <x>80</x>
+     <y>390</y>
+     <width>341</width>
+     <height>32</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+   </property>
+  </widget>
+  <widget class="QGroupBox" name="group_title">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>411</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>Tytuł wydruku</string>
+   </property>
+   <widget class="QLineEdit" name="titleBox">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>30</y>
+      <width>391</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="placeholderText">
+     <string>Wprowadź tytuł wydruku...</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QGroupBox" name="group_additional">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>80</y>
+     <width>411</width>
+     <height>101</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>Opcje dodatkowe</string>
+   </property>
+   <widget class="QCheckBox" name="numericScaleBox">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>30</y>
+      <width>151</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Dodaj skalę numeryczną</string>
+    </property>
+    <property name="checked">
+     <bool>false</bool>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="legendBox">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>50</y>
+      <width>101</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Dodaj legendę</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="arrowBox">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>70</y>
+      <width>141</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Dodaj strzałkę północy</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QGroupBox" name="group_annotations">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>190</y>
+     <width>411</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>Adnotacje</string>
+   </property>
+   <widget class="QLineEdit" name="annotationsBox">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>30</y>
+      <width>391</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="placeholderText">
+     <string>Wprowadź adnotacje do wydruku...</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QGroupBox" name="group_print_options">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>260</y>
+     <width>411</width>
+     <height>121</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>Opcje wydruku</string>
+   </property>
+   <widget class="QLabel" name="sizeLabel">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>60</y>
+      <width>81</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Format arkusza</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="sizeBox">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>60</y>
+      <width>69</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="editable">
+     <bool>false</bool>
+    </property>
+    <property name="currentIndex">
+     <number>3</number>
+    </property>
+    <item>
+     <property name="text">
+      <string>A1</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>A2</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>A3</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>A4</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QLabel" name="fileTypeLabel">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>90</y>
+      <width>81</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Format zapisu</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="fileTypeBox">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>90</y>
+      <width>69</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>PDF</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>PNG</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>JPG</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QLabel" name="orientationLabel">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>30</y>
+      <width>101</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Orientacja wydruku</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="orientationBox">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>30</y>
+      <width>69</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>pozioma</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>pionowa</string>
+     </property>
+    </item>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>acceptButtons</sender>
+   <signal>accepted()</signal>
+   <receiver>QuickPrintDialogBase</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>acceptButtons</sender>
+   <signal>rejected()</signal>
+   <receiver>QuickPrintDialogBase</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
