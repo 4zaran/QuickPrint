@@ -22,16 +22,144 @@
  ***************************************************************************/
 """
 import os
-from qgis.PyQt.QtCore import *
+from qgis.core import *
+from qgis.utils import iface
 from qgis.PyQt.QtGui import *
+from qgis.PyQt.QtCore import *
 from qgis.PyQt.QtWidgets import *
-from qgis.core import QgsProject
+from .quick_print_dialog import *
 
 # Initialize Qt resources from file resources.py
 from .resources import *
-# Import the code for the dialog
-from .quick_print_dialog import QuickPrintDialog
 
+
+# Import the code for the dialog
+
+class QuickPrintFormContainer:
+    def __init__(self, title="Print title", scale_numeric=True, scale_linear=True, legend=True, north_arrow=True, notes=""):
+        self.title = title
+        self.scale_numeric = scale_numeric
+        self.scale_linear = scale_linear
+        self.legend = legend
+        self.north_arrow = north_arrow
+        self.notes = notes
+
+
+def generate_map(mapParameters: QuickPrintFormContainer):
+    # === INIT ===
+    print("Initialization...")
+    project = QgsProject.instance()
+    manager = project.layoutManager()
+    layout = QgsPrintLayout(project)
+    layoutName = "QuickPrintLayout"
+    pluginFont = "MS Shell Dlg 2"
+
+    # === LAYOUT ===
+    print("Creating layout...")
+    layout.initializeDefaults()
+    layout.setName(layoutName)
+
+    layouts_list = manager.printLayouts()
+    for lyout in layouts_list:
+        if layout.name() == layoutName:
+            manager.removeLayout(lyout)
+
+    manager.addLayout(layout)
+
+    # === MAP ===
+    print("Creating map...")
+    map = QgsLayoutItemMap(layout)
+    map.setFrameEnabled(True)
+    # setup its initial position on the page
+    map.setRect(20, 20, 20, 20)
+    # add the map to the layout
+    layout.addLayoutItem(map)
+    # Move & Resize map on print layout canvas
+    map.attemptMove(QgsLayoutPoint(6.9, 27.15, QgsUnitTypes.LayoutMillimeters))
+    map.attemptResize(QgsLayoutSize(232.65, 176.248, QgsUnitTypes.LayoutMillimeters))
+    map.zoomToExtent(iface.mapCanvas().fullExtent())
+    #map.setScale(map.scale() * 1.01)
+
+    # === LEGEND ===
+    print("Creating legend...")
+    legend = QgsLayoutItemLegend(layout)
+    legend.setTitle("Legenda")
+    legend.setLinkedMap(map)
+    legend.setLegendFilterByMapEnabled(1)
+    legend.setStyleFont(QgsLegendStyle.Title, QFont(pluginFont, 14, 81))
+    legend.setStyleFont(QgsLegendStyle.Group, QFont(pluginFont, 11, 75))
+    legend.setStyleFont(QgsLegendStyle.Subgroup, QFont(pluginFont, 10, 63))
+    legend.setStyleFont(QgsLegendStyle.SymbolLabel, QFont(pluginFont, 10))
+    if mapParameters.legend:
+        layout.addLayoutItem(legend)
+    legend.attemptMove(QgsLayoutPoint(242.762, 27, QgsUnitTypes.LayoutMillimeters))
+
+    # === NORTH ARROW ===
+    print("Adding north arrow...")
+    north = QgsLayoutItemPicture(layout)
+    north.setPicturePath(":/images/north_arrows/layout_default_north_arrow.svg")
+    if mapParameters.north_arrow:
+        layout.addLayoutItem(north)
+    north.attemptResize(QgsLayoutSize(10, 10, QgsUnitTypes.LayoutMillimeters))
+    north.attemptMove(QgsLayoutPoint(224.7, 189.09, QgsUnitTypes.LayoutMillimeters))
+
+    # === SCALE BAR ===
+    print("Adding scale bar...")
+    scaleBar = QgsLayoutItemScaleBar(layout)
+    scaleBar.setStyle('Line Ticks Middle')  # optionally modify the style
+    scaleBar.setLinkedMap(map)  # map is an instance of QgsLayoutItemMap
+    scaleBar.setFont(QFont(pluginFont, 9))
+    scaleBar.setBoxContentSpace(0)
+    scaleBar.setLabelBarSpace(1)
+    scaleBar.setHeight(1)
+    scaleBar.setSubdivisionsHeight(2)
+    scaleBar.setMaximumBarWidth(60)
+    scaleBar.setSegmentSizeMode(1)
+    scaleBar.setSubdivisionsHeight(1)
+    scaleBar.applyDefaultSize()
+    if mapParameters.scale_linear:
+        layout.addLayoutItem(scaleBar)
+    scaleBar.attemptMove(QgsLayoutPoint(1, 20.396, QgsUnitTypes.LayoutCentimeters))
+    scaleBar.attemptResize(QgsLayoutSize(69.198, 6.041, QgsUnitTypes.LayoutMillimeters))
+
+    # === NUMERIC SCALE ===
+    scaleText = QgsLayoutItemLabel(layout)
+    scaleText.setText("Skala 1:" + "{:.0f}".format(map.scale()))
+    scaleText.setFont(QFont(pluginFont, 11))
+    scaleText.setHAlign(1)
+    scaleText.adjustSizeToText()
+    if mapParameters.scale_numeric:
+        layout.addLayoutItem(scaleText)
+    scaleText.attemptMove(QgsLayoutPoint(109.450, 204.780, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
+
+    # === TITLE ===
+    print("Adding title...")
+    title = QgsLayoutItemLabel(layout)
+    title.setText(mapParameters.title)
+    title.setFont(QFont(pluginFont, 28))
+    title.adjustSizeToText()
+    layout.addLayoutItem(title)
+    title.attemptMove(QgsLayoutPoint(10, 4, QgsUnitTypes.LayoutMillimeters))
+
+    # === NOTES ===
+    print("Adding notes...")
+    notes = QgsLayoutItemLabel(layout)
+    notes.setText(mapParameters.notes)
+    notes.setFont(QFont(pluginFont, 11))
+    notes.adjustSizeToText()
+    layout.addLayoutItem(notes)
+    notes.attemptMove(QgsLayoutPoint(11, 15, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
+    notes.attemptResize(QgsLayoutSize(228.7, 12, QgsUnitTypes.LayoutMillimeters))
+
+    # === EXPORT ===
+    print("Exporting...")
+    base_path = os.path.join(QgsProject.instance().homePath())
+    pdf_path = os.path.join(base_path, "output.pdf")
+
+    exporter = QgsLayoutExporter(layout)
+    exporter.exportToPdf(pdf_path, QgsLayoutExporter.PdfExportSettings())
+
+    print("Done!")
 
 
 class QuickPrint:
@@ -84,18 +212,17 @@ class QuickPrint:
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('QuickPrint', message)
 
-
     def add_action(
-        self,
-        icon_path,
-        text,
-        callback,
-        enabled_flag=True,
-        add_to_menu=True,
-        add_to_toolbar=True,
-        status_tip=None,
-        whats_this=None,
-        parent=None):
+            self,
+            icon_path,
+            text,
+            callback,
+            enabled_flag=True,
+            add_to_menu=True,
+            add_to_toolbar=True,
+            status_tip=None,
+            whats_this=None,
+            parent=None):
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -172,7 +299,6 @@ class QuickPrint:
         # will be set False in run()
         self.first_start = True
 
-
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
@@ -181,22 +307,26 @@ class QuickPrint:
                 action)
             self.iface.removeToolBarIcon(action)
 
-
     def accept(self):
-        #zapis wartości
+        # zapis wartości
         titleText = self.dlg.titleBox.text()
         annotationsText = self.dlg.annotationsBox.text()
         numericScale = self.dlg.numericScaleBox.checkState()
+        linearScale = self.dlg.linearScaleBox.checkState()
         legend = self.dlg.legendBox.checkState()
         northArrow = self.dlg.arrowBox.checkState()
-        orientation = self.dlg.orientationBox.currentIndex() #0 - pozioma, 1 - pionowa
+        orientation = self.dlg.orientationBox.currentIndex()  # 0 - pozioma, 1 - pionowa
 
+        mapParameters = QuickPrintFormContainer(titleText, numericScale, linearScale, legend, northArrow, annotationsText)
+        generate_map(mapParameters)
+        """
         print("Tytuł wydruku: " + titleText)
-        print("Adnotacje: "+ annotationsText)
-        print("Skala numeryczna: "+ str(numericScale))
-        print("Legenda: "+ str(legend))
-        print("Strzałka północy: "+ str(northArrow))
+        print("Adnotacje: " + annotationsText)
+        print("Skala numeryczna: " + str(numericScale))
+        print("Legenda: " + str(legend))
+        print("Strzałka północy: " + str(northArrow))
         print("Orientacja: " + str(orientation))
+        """
 
     def run(self):
         """Run method that performs all the real work"""
@@ -207,8 +337,6 @@ class QuickPrint:
             self.first_start = False
             self.dlg = QuickPrintDialog()
             self.dlg.acceptButtons.accepted.connect(self.accept)
-
-
 
         # show the dialog
         self.dlg.show()
