@@ -44,18 +44,9 @@ class QuickPrintFormContainer:
         self.north_arrow = north_arrow
         self.notes = notes
 
-
-def generate_map(mapParameters: QuickPrintFormContainer):
-    # === INIT ===
-    print("Initialization...")
-    project = QgsProject.instance()
-    manager = project.layoutManager()
-    layout = QgsPrintLayout(project)
-    layoutName = "QuickPrintLayout"
-    pluginFont = "MS Shell Dlg 2"
-
-    # === LAYOUT ===
+def create_layout(layoutName, manager, project):
     print("Creating layout...")
+    layout = QgsPrintLayout(project)
     layout.initializeDefaults()
     layout.setName(layoutName)
 
@@ -65,22 +56,30 @@ def generate_map(mapParameters: QuickPrintFormContainer):
             manager.removeLayout(lyout)
 
     manager.addLayout(layout)
+    return layout
 
-    # === MAP ===
+def create_map(layout, legend):
     print("Creating map...")
     map = QgsLayoutItemMap(layout)
     map.setFrameEnabled(True)
-    # setup its initial position on the page
     map.setRect(20, 20, 20, 20)
-    # add the map to the layout
     layout.addLayoutItem(map)
-    # Move & Resize map on print layout canvas
-    map.attemptMove(QgsLayoutPoint(6.9, 27.15, QgsUnitTypes.LayoutMillimeters))
-    map.attemptResize(QgsLayoutSize(232.65, 176.248, QgsUnitTypes.LayoutMillimeters))
+
+    #calculating position and scale based on page size
+    pageWidth = layout.pageCollection().page(0).pageSize().width()
+    pageHeight = layout.pageCollection().page(0).pageSize().height()
+    mapPositionX = pageWidth * 0.02
+    mapPositionY = pageHeight * 0.12
+    mapScaleX = pageWidth * 0.78
+    mapScaleY = pageHeight * 0.85
+
+    map.attemptMove(QgsLayoutPoint(mapPositionX, mapPositionY, QgsUnitTypes.LayoutMillimeters))
+    map.attemptResize(QgsLayoutSize(mapScaleX, mapScaleY, QgsUnitTypes.LayoutMillimeters))
     map.zoomToExtent(iface.mapCanvas().fullExtent())
     #map.setScale(map.scale() * 1.01)
+    return map
 
-    # === LEGEND ===
+def create_legend(layout, map, pluginFont):
     print("Creating legend...")
     legend = QgsLayoutItemLegend(layout)
     legend.setTitle("Legenda")
@@ -90,20 +89,19 @@ def generate_map(mapParameters: QuickPrintFormContainer):
     legend.setStyleFont(QgsLegendStyle.Group, QFont(pluginFont, 11, 75))
     legend.setStyleFont(QgsLegendStyle.Subgroup, QFont(pluginFont, 10, 63))
     legend.setStyleFont(QgsLegendStyle.SymbolLabel, QFont(pluginFont, 10))
-    if mapParameters.legend:
-        layout.addLayoutItem(legend)
+    layout.addLayoutItem(legend)
     legend.attemptMove(QgsLayoutPoint(242.762, 27, QgsUnitTypes.LayoutMillimeters))
+    #return legend
 
-    # === NORTH ARROW ===
+def create_north_arrow(layout):
     print("Adding north arrow...")
     north = QgsLayoutItemPicture(layout)
     north.setPicturePath(":/images/north_arrows/layout_default_north_arrow.svg")
-    if mapParameters.north_arrow:
-        layout.addLayoutItem(north)
+    layout.addLayoutItem(north)
     north.attemptResize(QgsLayoutSize(10, 10, QgsUnitTypes.LayoutMillimeters))
     north.attemptMove(QgsLayoutPoint(224.7, 189.09, QgsUnitTypes.LayoutMillimeters))
 
-    # === SCALE BAR ===
+def create_linear_scale(layout, map, pluginFont):
     print("Adding scale bar...")
     scaleBar = QgsLayoutItemScaleBar(layout)
     scaleBar.setStyle('Line Ticks Middle')  # optionally modify the style
@@ -117,39 +115,76 @@ def generate_map(mapParameters: QuickPrintFormContainer):
     scaleBar.setSegmentSizeMode(1)
     scaleBar.setSubdivisionsHeight(1)
     scaleBar.applyDefaultSize()
-    if mapParameters.scale_linear:
-        layout.addLayoutItem(scaleBar)
+    layout.addLayoutItem(scaleBar)
     scaleBar.attemptMove(QgsLayoutPoint(1, 20.396, QgsUnitTypes.LayoutCentimeters))
     scaleBar.attemptResize(QgsLayoutSize(69.198, 6.041, QgsUnitTypes.LayoutMillimeters))
 
-    # === NUMERIC SCALE ===
+def create_numeric_scale(layout, map, pluginFont):
     scaleText = QgsLayoutItemLabel(layout)
     scaleText.setText("Skala 1:" + "{:.0f}".format(map.scale()))
     scaleText.setFont(QFont(pluginFont, 11))
     scaleText.setHAlign(1)
     scaleText.adjustSizeToText()
-    if mapParameters.scale_numeric:
-        layout.addLayoutItem(scaleText)
+    layout.addLayoutItem(scaleText)
     scaleText.attemptMove(QgsLayoutPoint(109.450, 204.780, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
 
-    # === TITLE ===
+def create_title(titleText, layout, pluginFont):
     print("Adding title...")
     title = QgsLayoutItemLabel(layout)
-    title.setText(mapParameters.title)
+    title.setText(titleText)
     title.setFont(QFont(pluginFont, 28))
     title.adjustSizeToText()
     layout.addLayoutItem(title)
     title.attemptMove(QgsLayoutPoint(10, 4, QgsUnitTypes.LayoutMillimeters))
 
-    # === NOTES ===
+def create_notes(notesText, layout, pluginFont):
     print("Adding notes...")
     notes = QgsLayoutItemLabel(layout)
-    notes.setText(mapParameters.notes)
+    notes.setText(notesText)
     notes.setFont(QFont(pluginFont, 11))
     notes.adjustSizeToText()
     layout.addLayoutItem(notes)
     notes.attemptMove(QgsLayoutPoint(11, 15, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
     notes.attemptResize(QgsLayoutSize(228.7, 12, QgsUnitTypes.LayoutMillimeters))
+
+def generate_map(mapParameters: QuickPrintFormContainer):
+    # === INIT ===
+    print("Initialization...")
+
+    pluginFont = "MS Shell Dlg 2"
+    layoutName = "QuickPrintLayout"
+
+    project = QgsProject.instance()
+    manager = project.layoutManager()
+    layout = create_layout(layoutName, manager, project)
+
+    #pc = layout.pageCollection()
+    #pc.page(0).setPageSize('A4', QgsLayoutItemPage.Orientation.Portrait)
+    print(layout.pageCollection().page(0).pageSize().height())
+
+    map = create_map(layout, mapParameters.legend)
+
+    # === LEGEND ===
+    if mapParameters.legend:
+        create_legend(layout, map, pluginFont)
+
+    # === NORTH ARROW ===
+    if mapParameters.north_arrow:
+        create_north_arrow(layout)
+
+    # === SCALE BAR ===
+    if mapParameters.scale_linear:
+        create_linear_scale(layout, map, pluginFont)
+
+    # === NUMERIC SCALE ===
+    if mapParameters.scale_numeric:
+        create_numeric_scale(layout, map, pluginFont)
+
+    # === TITLE ===
+    create_title(mapParameters.title, layout, pluginFont)
+
+    # === NOTES ===
+    create_notes(mapParameters.notes, layout, pluginFont)
 
     # === EXPORT ===
     print("Exporting...")
