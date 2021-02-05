@@ -36,13 +36,15 @@ from .resources import *
 # Import the code for the dialog
 
 class QuickPrintFormContainer:
-    def __init__(self, title="Print title", scale_numeric=True, scale_linear=True, legend=True, north_arrow=True, notes=""):
+    def __init__(self, title="Print title", scale_numeric=True, scale_linear=True, legend=True, north_arrow=True, notes="", orientation=0, pageSize="A4"):
         self.title = title
         self.scale_numeric = scale_numeric
         self.scale_linear = scale_linear
         self.legend = legend
         self.north_arrow = north_arrow
         self.notes = notes
+        self.orientation = orientation
+        self.pageSize = pageSize
 
 def create_layout(layoutName, manager, project):
     print("Creating layout...")
@@ -64,10 +66,12 @@ def create_map(layout, legend):
     map.setFrameEnabled(True)
     map.setRect(20, 20, 20, 20)
     layout.addLayoutItem(map)
+    return map
 
+def resize_map(map, pageSize, isLegendPresent, areNotesPresent):
     #calculating position and scale based on page size
-    pageWidth = layout.pageCollection().page(0).pageSize().width()
-    pageHeight = layout.pageCollection().page(0).pageSize().height()
+    pageWidth = pageSize.width()
+    pageHeight = pageSize.height()
     mapPositionX = pageWidth * 0.02
     mapPositionY = pageHeight * 0.12
     mapScaleX = pageWidth * 0.78
@@ -76,7 +80,6 @@ def create_map(layout, legend):
     map.attemptMove(QgsLayoutPoint(mapPositionX, mapPositionY, QgsUnitTypes.LayoutMillimeters))
     map.attemptResize(QgsLayoutSize(mapScaleX, mapScaleY, QgsUnitTypes.LayoutMillimeters))
     map.zoomToExtent(iface.mapCanvas().fullExtent())
-    #map.setScale(map.scale() * 1.01)
     return map
 
 def create_legend(layout, map, pluginFont):
@@ -90,7 +93,11 @@ def create_legend(layout, map, pluginFont):
     legend.setStyleFont(QgsLegendStyle.Subgroup, QFont(pluginFont, 10, 63))
     legend.setStyleFont(QgsLegendStyle.SymbolLabel, QFont(pluginFont, 10))
     layout.addLayoutItem(legend)
-    legend.attemptMove(QgsLayoutPoint(242.762, 27, QgsUnitTypes.LayoutMillimeters))
+
+    pageSize = layout.pageCollection().page(0).pageSize()
+    positionX = pageSize.width() * 0.81
+    positionY = pageSize.height() * 0.12
+    legend.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
     #return legend
 
 def create_north_arrow(layout):
@@ -98,8 +105,12 @@ def create_north_arrow(layout):
     north = QgsLayoutItemPicture(layout)
     north.setPicturePath(":/images/north_arrows/layout_default_north_arrow.svg")
     layout.addLayoutItem(north)
+
+    pageSize = layout.pageCollection().page(0).pageSize()
+    positionX = pageSize.width() * 0.75
+    positionY = pageSize.height() * 0.9
     north.attemptResize(QgsLayoutSize(10, 10, QgsUnitTypes.LayoutMillimeters))
-    north.attemptMove(QgsLayoutPoint(224.7, 189.09, QgsUnitTypes.LayoutMillimeters))
+    north.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
 
 def create_linear_scale(layout, map, pluginFont):
     print("Adding scale bar...")
@@ -116,7 +127,11 @@ def create_linear_scale(layout, map, pluginFont):
     scaleBar.setSubdivisionsHeight(1)
     scaleBar.applyDefaultSize()
     layout.addLayoutItem(scaleBar)
-    scaleBar.attemptMove(QgsLayoutPoint(1, 20.396, QgsUnitTypes.LayoutCentimeters))
+
+    pageSize = layout.pageCollection().page(0).pageSize()
+    positionX = pageSize.width() * 0.03
+    positionY = pageSize.height() * 0.97
+    scaleBar.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
     scaleBar.attemptResize(QgsLayoutSize(69.198, 6.041, QgsUnitTypes.LayoutMillimeters))
 
 def create_numeric_scale(layout, map, pluginFont):
@@ -126,7 +141,11 @@ def create_numeric_scale(layout, map, pluginFont):
     scaleText.setHAlign(1)
     scaleText.adjustSizeToText()
     layout.addLayoutItem(scaleText)
-    scaleText.attemptMove(QgsLayoutPoint(109.450, 204.780, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
+
+    pageSize = layout.pageCollection().page(0).pageSize()
+    positionX = pageSize.width() * 0.5
+    positionY = pageSize.height() * 0.97
+    scaleText.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
 
 def create_title(titleText, layout, pluginFont):
     print("Adding title...")
@@ -135,7 +154,11 @@ def create_title(titleText, layout, pluginFont):
     title.setFont(QFont(pluginFont, 28))
     title.adjustSizeToText()
     layout.addLayoutItem(title)
-    title.attemptMove(QgsLayoutPoint(10, 4, QgsUnitTypes.LayoutMillimeters))
+
+    pageSize = layout.pageCollection().page(0).pageSize()
+    positionX = pageSize.width() * 0.03
+    positionY = pageSize.height() * 0.02
+    title.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
 
 def create_notes(notesText, layout, pluginFont):
     print("Adding notes...")
@@ -144,7 +167,11 @@ def create_notes(notesText, layout, pluginFont):
     notes.setFont(QFont(pluginFont, 11))
     notes.adjustSizeToText()
     layout.addLayoutItem(notes)
-    notes.attemptMove(QgsLayoutPoint(11, 15, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
+
+    pageSize = layout.pageCollection().page(0).pageSize()
+    positionX = pageSize.width() * 0.03
+    positionY = pageSize.height() * 0.07
+    notes.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
     notes.attemptResize(QgsLayoutSize(228.7, 12, QgsUnitTypes.LayoutMillimeters))
 
 def generate_map(mapParameters: QuickPrintFormContainer):
@@ -158,9 +185,8 @@ def generate_map(mapParameters: QuickPrintFormContainer):
     manager = project.layoutManager()
     layout = create_layout(layoutName, manager, project)
 
-    #pc = layout.pageCollection()
-    #pc.page(0).setPageSize('A4', QgsLayoutItemPage.Orientation.Portrait)
-    print(layout.pageCollection().page(0).pageSize().height())
+    pc = layout.pageCollection()
+    pc.page(0).setPageSize(mapParameters.pageSize, mapParameters.orientation)
 
     map = create_map(layout, mapParameters.legend)
 
@@ -172,19 +198,23 @@ def generate_map(mapParameters: QuickPrintFormContainer):
     if mapParameters.north_arrow:
         create_north_arrow(layout)
 
-    # === SCALE BAR ===
-    if mapParameters.scale_linear:
-        create_linear_scale(layout, map, pluginFont)
-
-    # === NUMERIC SCALE ===
-    if mapParameters.scale_numeric:
-        create_numeric_scale(layout, map, pluginFont)
-
     # === TITLE ===
     create_title(mapParameters.title, layout, pluginFont)
 
     # === NOTES ===
     create_notes(mapParameters.notes, layout, pluginFont)
+
+    # setting size of map
+    pageSize = layout.pageCollection().page(0).pageSize()
+    resize_map(map, pageSize, mapParameters.legend, mapParameters.notes)
+
+    # === NUMERIC SCALE ===
+    if mapParameters.scale_numeric:
+        create_numeric_scale(layout, map, pluginFont)
+
+    # === SCALE BAR ===
+    if mapParameters.scale_linear:
+        create_linear_scale(layout, map, pluginFont)
 
     # === EXPORT ===
     print("Exporting...")
@@ -350,11 +380,15 @@ class QuickPrint:
         linearScale = self.dlg.linearScaleBox.checkState()
         legend = self.dlg.legendBox.checkState()
         northArrow = self.dlg.arrowBox.checkState()
+        pageSize = self.dlg.sizeBox.currentText()
         orientation = self.dlg.orientationBox.currentIndex()  # 0 - pozioma, 1 - pionowa
 
-        mapParameters = QuickPrintFormContainer(titleText, numericScale, linearScale, legend, northArrow, annotationsText)
+        mapParameters = QuickPrintFormContainer(titleText, numericScale, linearScale, legend, northArrow, annotationsText, orientation, pageSize)
         generate_map(mapParameters)
         """
+        DEBUG
+        print("Rozmiar strony: " + str(pageSize))
+        print("Orientacja: " + str(orientation))
         print("Tytuł wydruku: " + titleText)
         print("Adnotacje: " + annotationsText)
         print("Skala numeryczna: " + str(numericScale))

@@ -244,7 +244,7 @@
    </widget>
    <widget class="QComboBox" name="sizeBox">
     <property name="enabled">
-     <bool>false</bool>
+     <bool>true</bool>
     </property>
     <property name="geometry">
      <rect>
@@ -337,7 +337,7 @@
    </widget>
    <widget class="QComboBox" name="orientationBox">
     <property name="enabled">
-     <bool>false</bool>
+     <bool>true</bool>
     </property>
     <property name="geometry">
      <rect>
@@ -349,12 +349,12 @@
     </property>
     <item>
      <property name="text">
-      <string>pozioma</string>
+      <string>pionowa</string>
      </property>
     </item>
     <item>
      <property name="text">
-      <string>pionowa</string>
+      <string>pozioma</string>
      </property>
     </item>
    </widget>
