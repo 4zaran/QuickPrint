@@ -36,7 +36,7 @@ from .resources import *
 # Import the code for the dialog
 
 class QuickPrintFormContainer:
-    def __init__(self, title="Print title", scale_numeric=True, scale_linear=True, legend=True, north_arrow=True, notes="", orientation=0, pageSize="A4"):
+    def __init__(self, title="Print title", scale_numeric=True, scale_linear=True, legend=True, north_arrow=True, notes="", orientation=0, pageSize="A4", filePath=""):
         self.title = title
         self.scale_numeric = scale_numeric
         self.scale_linear = scale_linear
@@ -45,6 +45,7 @@ class QuickPrintFormContainer:
         self.notes = notes
         self.orientation = orientation
         self.pageSize = pageSize
+        self.filePath = filePath
 
 def create_layout(layoutName, manager, project):
     print("Creating layout...")
@@ -68,14 +69,23 @@ def create_map(layout, legend):
     layout.addLayoutItem(map)
     return map
 
-def resize_map(map, pageSize, isLegendPresent, areNotesPresent):
+def resize_map(map, pageSize, isLegendChecked, areNotesChecked):
+    legendPresent =  not isLegendChecked
+    notesPresent = not areNotesChecked
     #calculating position and scale based on page size
     pageWidth = pageSize.width()
     pageHeight = pageSize.height()
     mapPositionX = pageWidth * 0.02
-    mapPositionY = pageHeight * 0.12
-    mapScaleX = pageWidth * 0.78
-    mapScaleY = pageHeight * 0.85
+    if notesPresent:
+        mapPositionY = pageHeight * 0.076
+        mapScaleY = pageHeight * 0.89
+    else:
+        mapPositionY = pageHeight * 0.12
+        mapScaleY = pageHeight * 0.85
+    if legendPresent:
+        mapScaleX = pageWidth * 0.96
+    else:
+        mapScaleX = pageWidth * 0.78
 
     map.attemptMove(QgsLayoutPoint(mapPositionX, mapPositionY, QgsUnitTypes.LayoutMillimeters))
     map.attemptResize(QgsLayoutSize(mapScaleX, mapScaleY, QgsUnitTypes.LayoutMillimeters))
@@ -174,6 +184,21 @@ def create_notes(notesText, layout, pluginFont):
     notes.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
     notes.attemptResize(QgsLayoutSize(228.7, 12, QgsUnitTypes.LayoutMillimeters))
 
+def export(layout, filePath):
+    print("Exporting...")
+    exporter = QgsLayoutExporter(layout)
+    fname, fileExtension = os.path.splitext(filePath)
+    #base_path = os.path.join(QgsProject.instance().homePath())
+    #file_path = pdf_path = os.path.join(base_path, "output." + fileType)
+    if fileExtension == ".pdf":
+        exporter.exportToPdf(filePath, QgsLayoutExporter.PdfExportSettings())
+    elif fileExtension == ".png" or fileExtension == ".jpg":
+        exporter.exportToImage(filePath, QgsLayoutExporter.ImageExportSettings())
+    elif fileExtension == ".svg":
+        exporter.exportToSvg(filePath, QgsLayoutExporter.SvgExportSettings())
+    else:
+        print( "upsi..." )
+
 def generate_map(mapParameters: QuickPrintFormContainer):
     # === INIT ===
     print("Initialization...")
@@ -217,12 +242,7 @@ def generate_map(mapParameters: QuickPrintFormContainer):
         create_linear_scale(layout, map, pluginFont)
 
     # === EXPORT ===
-    print("Exporting...")
-    base_path = os.path.join(QgsProject.instance().homePath())
-    pdf_path = os.path.join(base_path, "output.pdf")
-
-    exporter = QgsLayoutExporter(layout)
-    exporter.exportToPdf(pdf_path, QgsLayoutExporter.PdfExportSettings())
+    export(layout, mapParameters.filePath)
 
     print("Done!")
 
@@ -372,19 +392,29 @@ class QuickPrint:
                 action)
             self.iface.removeToolBarIcon(action)
 
+    def select_output_file(self):
+        filename, _filter = QFileDialog.getSaveFileName(
+            self.dlg, "Wybierz plik do zapisu","wydruk", "Obraz (*.png *.jpg);;Dokument PDF (*.pdf);;Grafika wektorowa SVG (*.svg)")
+        self.dlg.outputFileBox.setText(filename)
+
     def accept(self):
         # zapis wartości
-        titleText = self.dlg.titleBox.text()
-        annotationsText = self.dlg.annotationsBox.text()
-        numericScale = self.dlg.numericScaleBox.checkState()
-        linearScale = self.dlg.linearScaleBox.checkState()
-        legend = self.dlg.legendBox.checkState()
-        northArrow = self.dlg.arrowBox.checkState()
-        pageSize = self.dlg.sizeBox.currentText()
-        orientation = self.dlg.orientationBox.currentIndex()  # 0 - pozioma, 1 - pionowa
+        fileName = self.dlg.outputFileBox.text()
+        if not fileName:
+            iface.messageBar().pushMessage("Error", "Ścieżka do pliku nie może być pusta!", level=Qgis.Critical)
+        else:
+            titleText = self.dlg.titleBox.text()
+            annotationsText = self.dlg.annotationsBox.text()
+            numericScale = self.dlg.numericScaleBox.checkState()
+            linearScale = self.dlg.linearScaleBox.checkState()
+            legend = self.dlg.legendBox.checkState()
+            northArrow = self.dlg.arrowBox.checkState()
+            pageSize = self.dlg.sizeBox.currentText()
+            orientation = self.dlg.orientationBox.currentIndex()  # 0 - pozioma, 1 - pionowa
 
-        mapParameters = QuickPrintFormContainer(titleText, numericScale, linearScale, legend, northArrow, annotationsText, orientation, pageSize)
-        generate_map(mapParameters)
+            mapParameters = QuickPrintFormContainer(titleText, numericScale, linearScale, legend, northArrow, annotationsText, orientation, pageSize, fileName)
+            #select_output_file(self)
+            generate_map(mapParameters)
         """
         DEBUG
         print("Rozmiar strony: " + str(pageSize))
@@ -406,6 +436,7 @@ class QuickPrint:
             self.first_start = False
             self.dlg = QuickPrintDialog()
             self.dlg.acceptButtons.accepted.connect(self.accept)
+            self.dlg.outputFileButton.clicked.connect(self.select_output_file)
 
         # show the dialog
         self.dlg.show()
