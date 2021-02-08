@@ -6,7 +6,7 @@
 name=Quick Print
 qgisMinimumVersion=3.0
 description=Quick Print plugin
-version=0.1
+version=0.5
 author=Karol Chanaj
 email=karol.chanaj3@gmail.com
 
