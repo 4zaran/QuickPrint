@@ -21,7 +21,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-import os
+import os, subprocess, platform
 from qgis.core import *
 from qgis.utils import iface
 from qgis.PyQt.QtGui import *
@@ -275,15 +275,6 @@ def generate_map(mapParameters: QuickPrintFormContainer, preview=False):
     if preview:
         base_path = os.path.join(QgsProject.instance().homePath())
         preview_path = os.path.join(base_path, "preview.png")
-        """
-        scene = QGraphicsScene()
-        scene.setBackgroundBrush(QColor.fromRgb(235,235,235));
-        image = QPixmap(preview_path)
-        sceneRect = self.dlg.previewBox.mapToScene(self.dlg.previewBox.rect()).boundingRect()
-        image2 = image.scaled(sceneRect.width()-5, sceneRect.height()-5, 1, 1)
-        scene.addPixmap(image2)
-        self.dlg.previewBox.setScene(scene)
-        """
     else:
         if export_failure == 0:
             iface.messageBar().pushMessage("Sukces", "Plik eksportowano pomyślnie!", level=Qgis.Success, duration=3)
@@ -447,7 +438,15 @@ class QuickPrint:
         image2 = image.scaled(sceneRect.width()-5, sceneRect.height()-5, 1, 1)
         scene.addPixmap(image2)
         self.dlg.previewBox.setScene(scene)
-
+    def openFile(self):
+        filepath = self.dlg.outputFileBox.text()
+        if platform.system() == 'Darwin':       # macOS
+            subprocess.call(('open', filepath))
+        elif platform.system() == 'Windows':    # Windows
+            os.startfile(filepath)
+        else:                                   # linux variants
+            subprocess.call(('xdg-open', filepath))
+        pass
     def select_output_file(self):
         filename, _filter = QFileDialog.getSaveFileName(
             self.dlg, "Wybierz plik do zapisu","wydruk", "Obraz (*.png *.jpg);;Dokument PDF (*.pdf);;Grafika wektorowa SVG (*.svg)")
@@ -456,7 +455,6 @@ class QuickPrint:
     def accept(self, preview=False):
         # zapis wartości
         fileName = self.dlg.outputFileBox.text()
-        print(preview)
         if not fileName and not preview:
             iface.messageBar().pushMessage("Error", "Ścieżka do pliku nie może być pusta!", level=Qgis.Critical)
         else:
@@ -474,6 +472,8 @@ class QuickPrint:
             generate_map(mapParameters, preview)
             if preview:
                 self.updatePreview()
+            if self.dlg.openFileCheck.checkState() and not preview:
+                self.openFile()
         """
         DEBUG
         print("Rozmiar strony: " + str(pageSize))
