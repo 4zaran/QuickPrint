@@ -23,6 +23,7 @@
 """
 import os, subprocess, platform
 from qgis.core import *
+from qgis.gui import *
 from qgis.utils import iface
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtCore import *
@@ -36,7 +37,8 @@ from .resources import *
 # Import the code for the dialog
 
 class QuickPrintFormContainer:
-    def __init__(self, title="Print title", scale_numeric=True, scale_linear=True, legend=True, north_arrow=True, notes="", orientation=0, pageSize="A4", filePath=""):
+    def __init__(self, title="Print title", scale_numeric=True, scale_linear=True, legend=True, north_arrow=True,
+                 notes="", orientation=0, pageSize="A4", filePath="", customExtent=False, customExtentMode=0, preview=False):
         self.title = title
         self.scale_numeric = scale_numeric
         self.scale_linear = scale_linear
@@ -46,242 +48,255 @@ class QuickPrintFormContainer:
         self.orientation = orientation
         self.pageSize = pageSize
         self.filePath = filePath
+        self.customExtent = customExtent
+        self.customExtentMode = customExtentMode
+        self.pluginFont = ""
+        self.preview=preview
 
-def create_layout(layoutName, manager, project):
-    print("Creating layout...")
-    layout = QgsPrintLayout(project)
-    layout.initializeDefaults()
-    layout.setName(layoutName)
 
-    #remove existing layout and add new
-    layouts_list = manager.printLayouts()
-    for lyout in layouts_list:
-        if layout.name() == layoutName:
-            manager.removeLayout(lyout)
+class QuickPrintLayout:
+    # layout, map, legend, northarrow, linearscale, numericscale, title, notes
+    def __init__(self, map_parameters: QuickPrintFormContainer):
+        self.map_parameters = map_parameters
+        self.project = QgsProject.instance()
+        self.manager = self.project.layoutManager()
+        self.layout = self.create_layout("QuickPrintLayout")
+        self.map_parameters.pluginFont = "MS Shell Dlg 2"
+        self.pageCollection = self.layout.pageCollection()
+        self.pageCollection.page(0).setPageSize(map_parameters.pageSize, map_parameters.orientation)
 
-    manager.addLayout(layout)
-    return layout
+        self.map = self.create_map()
+        self.title, self.title.bottomPoint = self.create_title()
 
-def create_map(layout, legend):
-    print("Creating map...")
-    map = QgsLayoutItemMap(layout)
-    map.setFrameEnabled(True)
-    map.setRect(20, 20, 20, 20)
-    layout.addLayoutItem(map)
-    return map
+        if self.map_parameters.notes:
+            self.notes, self.notes.bottomPoint = self.create_notes()
+        if self.map_parameters.legend:
+            self.legend = self.create_legend()
 
-def resize_map(map, pageSize, isLegendChecked, areNotesChecked, notesBottomPointY):
-    legendPresent =  not isLegendChecked
-    notesPresent = not areNotesChecked
-    #calculating position and scale based on page size
-    pageWidth = pageSize.width()
-    pageHeight = pageSize.height()
-    mapPositionX = pageWidth * 0.02
-    if areNotesChecked:
-        mapPositionY = notesBottomPointY + 2
-        #mapPositionY = pageHeight * 0.076
-        mapScaleY = ((pageHeight - (mapPositionY + 7.5)) / pageHeight) * pageHeight
-    else:
-        mapPositionY = notesBottomPointY
-        #mapPositionY = notesBottomPointY
-        mapScaleY = ((pageHeight - (mapPositionY + 7.5)) / pageHeight) * pageHeight
-        #mapScaleY = pageHeight * 0.85
-    if legendPresent:
-        mapScaleX = pageWidth * 0.96
-    else:
-        mapScaleX = pageWidth * 0.78
-    map.attemptMove(QgsLayoutPoint(mapPositionX, mapPositionY, QgsUnitTypes.LayoutMillimeters))
-    map.attemptResize(QgsLayoutSize(mapScaleX, mapScaleY, QgsUnitTypes.LayoutMillimeters))
-    map.zoomToExtent(iface.mapCanvas().fullExtent())
-    return map
+        self.resize_map()
 
-def create_legend(layout, map, pluginFont):
-    print("Creating legend...")
-    #creating legend
-    legend = QgsLayoutItemLegend(layout)
-    legend.setTitle("Legenda")
-    legend.setLinkedMap(map)
-    #set style
-    legend.setLegendFilterByMapEnabled(1)
-    legend.setStyleFont(QgsLegendStyle.Title, QFont(pluginFont, 14, 81))
-    legend.setStyleFont(QgsLegendStyle.Group, QFont(pluginFont, 11, 75))
-    legend.setStyleFont(QgsLegendStyle.Subgroup, QFont(pluginFont, 10, 63))
-    legend.setStyleFont(QgsLegendStyle.SymbolLabel, QFont(pluginFont, 10))
-    layout.addLayoutItem(legend)
-    #set position
-    pageSize = layout.pageCollection().page(0).pageSize()
-    positionX = pageSize.width() * 0.81
-    positionY = pageSize.height() * 0.12
-    legend.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
-    #return legend
-    pass
+        if self.map_parameters.legend:
+            self.setLegendPosition()
+        if self.map_parameters.scale_numeric:
+            self.numeric_scale = self.create_numeric_scale()
+        if self.map_parameters.scale_linear:
+            self.scaleBar = self.create_linear_scale()
+        if self.map_parameters.north_arrow:
+            self.north_arrow = self.create_north_arrow()
 
-def create_north_arrow(layout, map):
-    print("Adding north arrow...")
-    mapPosition = map.positionWithUnits()
-    mapSize = map.sizeWithUnits()
-    #create arrow
-    north = QgsLayoutItemPicture(layout)
-    north.setPicturePath(":/images/north_arrows/layout_default_north_arrow.svg")
-    north.setLinkedMap(map)
-    layout.addLayoutItem(north)
-    #set position
-    pageSize = layout.pageCollection().page(0).pageSize()
-    positionX = mapPosition.x() + mapSize.width() - 20
-    positionY = mapPosition.y() + mapSize.height() - 20
-    north.attemptResize(QgsLayoutSize(10, 10, QgsUnitTypes.LayoutMillimeters))
-    north.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
-    pass
-
-def create_linear_scale(layout, map, pluginFont):
-    print("Adding scale bar...")
-    scaleBar = QgsLayoutItemScaleBar(layout)
-    scaleBar.setStyle('Line Ticks Middle')  # optionally modify the style
-    scaleBar.setLinkedMap(map)  # map is an instance of QgsLayoutItemMap
-    scaleBar.setFont(QFont(pluginFont, 9))
-    scaleBar.setBoxContentSpace(0)
-    scaleBar.setLabelBarSpace(1)
-    scaleBar.setHeight(1)
-    scaleBar.setSubdivisionsHeight(2)
-    scaleBar.setMaximumBarWidth(60)
-    scaleBar.setSegmentSizeMode(1)
-    scaleBar.setSubdivisionsHeight(1)
-    scaleBar.applyDefaultSize()
-    layout.addLayoutItem(scaleBar)
-
-    pageSize = layout.pageCollection().page(0).pageSize()
-    positionX = pageSize.width() * 0.03
-    positionY = pageSize.height() - 7.5
-    scaleBar.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
-    scaleBar.attemptResize(QgsLayoutSize(69.198, 6.041, QgsUnitTypes.LayoutMillimeters))
-    pass
-
-def create_numeric_scale(layout, map, pluginFont):
-    scaleText = QgsLayoutItemLabel(layout)
-    scaleText.setText("Skala 1:" + "{:.0f}".format(map.scale()))
-    scaleText.setFont(QFont(pluginFont, 11))
-    scaleText.setReferencePoint(QgsLayoutItem.UpperMiddle)
-    scaleText.adjustSizeToText()
-    layout.addLayoutItem(scaleText)
-
-    pageSize = layout.pageCollection().page(0).pageSize()
-    mapSize = map.sizeWithUnits()
-    mapPosition = map.positionWithUnits()
-    positionX = mapPosition.x() + (mapSize.width() / 2.0)
-    positionY = pageSize.height() - 7.5
-    scaleText.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
-    pass
-
-def create_title(titleText, layout, pluginFont):
-    print("Adding title...")
-    title = QgsLayoutItemLabel(layout)
-    title.setText(titleText)
-    title.setFont(QFont(pluginFont, 28))
-    title.adjustSizeToText()
-    layout.addLayoutItem(title)
-
-    pageSize = layout.pageCollection().page(0).pageSize()
-    positionX = pageSize.width() * 0.03
-    positionY = pageSize.height() * 0.02
-    title.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
-    return positionY + title.sizeForText().height()
-
-def create_notes(notesText, layout, pluginFont, positionY):
-    print("Adding notes...")
-    notes = QgsLayoutItemLabel(layout)
-    notes.setText(notesText)
-    notes.setFont(QFont(pluginFont, 11))
-    notes.adjustSizeToText()
-    layout.addLayoutItem(notes)
-
-    pageSize = layout.pageCollection().page(0).pageSize()
-    positionX = pageSize.width() * 0.03
-    #positionY = pageSize.height() * 0.07
-    notes.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
-    #notes.attemptResize(QgsLayoutSize(228.7, 12, QgsUnitTypes.LayoutMillimeters))
-    return positionY + notes.sizeForText().height()
-    pass
-
-def export(layout, filePath, preview=False):
-    print("Exporting...")
-    exporter = QgsLayoutExporter(layout)
-    fname, fileExtension = os.path.splitext(filePath)
-    if preview:
-        base_path = os.path.join(QgsProject.instance().homePath())
-        preview_path = os.path.join(base_path, "preview.png")
-        layout.renderContext().setDpi(75)
-        exportError = exporter.exportToImage(preview_path, QgsLayoutExporter.ImageExportSettings())
-    else:
-        if fileExtension == ".pdf":
-            exportError = exporter.exportToPdf(filePath, QgsLayoutExporter.PdfExportSettings())
-        elif fileExtension == ".png" or fileExtension == ".jpg":
-            exportError = exporter.exportToImage(filePath, QgsLayoutExporter.ImageExportSettings())
-        elif fileExtension == ".svg":
-            exportError = exporter.exportToSvg(filePath, QgsLayoutExporter.SvgExportSettings())
+        export_failure = self.export()
+        if self.map_parameters.preview:
+            base_path = os.path.join(QgsProject.instance().homePath())
+            preview_path = os.path.join(base_path, "preview.png")
         else:
-            print( "upsi..." )
-            return -1
-    return exportError
+            if export_failure == 0:
+                iface.messageBar().pushMessage("Sukces", "Plik eksportowano pomyślnie!", level=Qgis.Success, duration=3)
 
-def generate_map(mapParameters: QuickPrintFormContainer, preview=False):
-    # === INIT ===
-    print("Initialization...")
+        print("Done!")
 
-    pluginFont = "MS Shell Dlg 2"
-    layoutName = "QuickPrintLayout"
+    def create_layout(self, layout_name):
+        print("Creating layout...")
+        layout = QgsPrintLayout(self.project)
+        layout.initializeDefaults()
+        layout.setName(layout_name)
 
-    project = QgsProject.instance()
-    manager = project.layoutManager()
-    layout = create_layout(layoutName, manager, project)
+        # remove existing layout and add new
+        layouts_list = self.manager.printLayouts()
+        for lyout in layouts_list:
+            if layout.name() == layout_name:
+                self.manager.removeLayout(lyout)
 
-    pc = layout.pageCollection()
-    pc.page(0).setPageSize(mapParameters.pageSize, mapParameters.orientation)
+        self.manager.addLayout(layout)
+        return layout
 
-    map = create_map(layout, mapParameters.legend)
+    def create_map(self):
+        print("Creating map...")
+        map = QgsLayoutItemMap(self.layout)
+        map.setFrameEnabled(True)
+        map.setRect(20, 20, 20, 20)
+        self.layout.addLayoutItem(map)
+        return map
 
-    # === LEGEND ===
-    if mapParameters.legend:
-        create_legend(layout, map, pluginFont)
+    def resize_map(self):
+        #dodać sprawdzanie listy
 
+        legendPresent = not self.map_parameters.legend
+        notesPresent = not self.map_parameters.notes
+        # calculating position and scale based on page size
+        pageWidth = self.pageCollection.page(0).pageSize().width()
+        pageHeight = self.pageCollection.page(0).pageSize().height()
+        mapPositionX = pageWidth * 0.02
+        if self.map_parameters.notes:
+            mapPositionY = self.notes.bottomPoint + 2
+            # mapPositionY = pageHeight * 0.076
+            mapScaleY = ((pageHeight - (mapPositionY + 7.5)) / pageHeight) * pageHeight
+        else:
+            mapPositionY = self.title.bottomPoint
+            # mapPositionY = notesBottomPointY
+            mapScaleY = ((pageHeight - (mapPositionY + 7.5)) / pageHeight) * pageHeight
+            # mapScaleY = pageHeight * 0.85
+        if legendPresent:
+            mapScaleX = pageWidth * 0.96
+        else:
+            mapScaleX = pageWidth * 0.78
+            #mapScaleX = pageWidth - self.legend.sizeWithUnits().width()
+        if self.map_parameters.customExtentMode == 1:
+            if mapScaleX < mapScaleY:
+                mapScaleY = mapScaleX
+            else:
+                mapScaleX = mapScaleY
+        self.map.attemptMove(QgsLayoutPoint(mapPositionX, mapPositionY, QgsUnitTypes.LayoutMillimeters))
+        self.map.attemptResize(QgsLayoutSize(mapScaleX, mapScaleY, QgsUnitTypes.LayoutMillimeters))
+        # map.zoomToExtent(iface.mapCanvas().fullExtent())
+        self.map.zoomToExtent(self.map_parameters.customExtent)
+        # map.setExtent(customExtent)
+        #return map
 
-    # === TITLE ===
-    titleBottomPointY = create_title(mapParameters.title, layout, pluginFont)
+    def create_legend(self):
+        print("Creating legend...")
+        # creating legend
+        legend = QgsLayoutItemLegend(self.layout)
+        legend.setTitle("Legenda")
+        legend.setLinkedMap(self.map)
+        # set style
+        legend.setLegendFilterByMapEnabled(1)
+        legend.setStyleFont(QgsLegendStyle.Title, QFont(self.map_parameters.pluginFont, 14, 81))
+        legend.setStyleFont(QgsLegendStyle.Group, QFont(self.map_parameters.pluginFont, 11, 75))
+        legend.setStyleFont(QgsLegendStyle.Subgroup, QFont(self.map_parameters.pluginFont, 10, 63))
+        legend.setStyleFont(QgsLegendStyle.SymbolLabel, QFont(self.map_parameters.pluginFont, 10))
+        self.layout.addLayoutItem(legend)
+        return legend
 
-    # === NOTES ===
-    notesBottomPointY = create_notes(mapParameters.notes, layout, pluginFont, titleBottomPointY)
+    def setLegendPosition(self):
+        # set position
+        mapPosition = self.map.positionWithUnits()
+        mapSize = self.map.sizeWithUnits()
+        pageSize = self.layout.pageCollection().page(0).pageSize()
+        positionX = mapPosition.x() + mapSize.width() + 2.5
+        positionY = pageSize.height() * 0.12
+        self.legend.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
+        # return legend
+        pass
 
-    # setting size of map
-    pageSize = layout.pageCollection().page(0).pageSize()
+    def create_north_arrow(self):
+        print("Adding north arrow...")
+        # create arrow
+        north = QgsLayoutItemPicture(self.layout)
+        north.setPicturePath(":/images/north_arrows/layout_default_north_arrow.svg")
+        north.setLinkedMap(self.map)
+        self.layout.addLayoutItem(north)
+        # set position
+        mapPosition = self.map.positionWithUnits()
+        mapSize = self.map.sizeWithUnits()
+        pageSize = self.layout.pageCollection().page(0).pageSize()
+        positionX = mapPosition.x() + mapSize.width() - 20
+        positionY = mapPosition.y() + mapSize.height() - 20
+        north.attemptResize(QgsLayoutSize(10, 10, QgsUnitTypes.LayoutMillimeters))
+        north.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
+        return north
 
-    if mapParameters.notes:
-        resize_map(map, pageSize, mapParameters.legend, mapParameters.notes, notesBottomPointY)
-    else:
-        resize_map(map, pageSize, mapParameters.legend, mapParameters.notes, titleBottomPointY)
+    def create_linear_scale(self):
+        print("Adding scale bar...")
+        # set style
+        scaleBar = QgsLayoutItemScaleBar(self.layout)
+        scaleBar.setStyle('Line Ticks Middle')  # optionally modify the style
+        scaleBar.setLinkedMap(self.map)  # map is an instance of QgsLayoutItemMap
+        scaleBar.setFont(QFont(self.map_parameters.pluginFont, 9))
+        scaleBar.setBoxContentSpace(0)
+        scaleBar.setLabelBarSpace(1)
+        scaleBar.setHeight(1)
+        scaleBar.setSubdivisionsHeight(2)
+        scaleBar.setMaximumBarWidth(60)
+        scaleBar.setSegmentSizeMode(1)
+        scaleBar.setSubdivisionsHeight(1)
+        scaleBar.applyDefaultSize()
+        self.layout.addLayoutItem(scaleBar)
+        # scale
+        pageSize = self.layout.pageCollection().page(0).pageSize()
+        positionX = pageSize.width() * 0.03
+        positionY = pageSize.height() - 7.5
+        scaleBar.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
+        scaleBar.attemptResize(QgsLayoutSize(69.198, 6.041, QgsUnitTypes.LayoutMillimeters))
+        return scaleBar
 
-    # === NUMERIC SCALE ===
-    if mapParameters.scale_numeric:
-        create_numeric_scale(layout, map, pluginFont)
+    def create_numeric_scale(self):
+        scaleText = QgsLayoutItemLabel(self.layout)
+        scaleText.setText("Skala 1:" + "{:.0f}".format(self.map.scale()))
+        scaleText.setFont(QFont(self.map_parameters.pluginFont, 11))
+        scaleText.setReferencePoint(QgsLayoutItem.UpperMiddle)
+        scaleText.adjustSizeToText()
+        self.layout.addLayoutItem(scaleText)
 
-    # === SCALE BAR ===
-    if mapParameters.scale_linear:
-        create_linear_scale(layout, map, pluginFont)
+        pageSize = self.layout.pageCollection().page(0).pageSize()
+        mapSize = self.map.sizeWithUnits()
+        mapPosition = self.map.positionWithUnits()
+        positionX = mapPosition.x() + (mapSize.width() / 2.0)
+        positionY = pageSize.height() - 7.5
+        scaleText.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
+        return scaleText
 
-    # === NORTH ARROW ===
-    if mapParameters.north_arrow:
-        create_north_arrow(layout, map)
+    def create_title(self):
+        print("Adding title...")
+        title = QgsLayoutItemLabel(self.layout)
+        title.setText(self.map_parameters.title)
+        title.setFont(QFont(self.map_parameters.pluginFont, 28))
+        title.adjustSizeToText()
+        self.layout.addLayoutItem(title)
 
-    # === EXPORT ===
-    export_failure = export(layout, mapParameters.filePath, preview)
-    if preview:
-        base_path = os.path.join(QgsProject.instance().homePath())
-        preview_path = os.path.join(base_path, "preview.png")
-    else:
-        if export_failure == 0:
-            iface.messageBar().pushMessage("Sukces", "Plik eksportowano pomyślnie!", level=Qgis.Success, duration=3)
+        pageSize = self.layout.pageCollection().page(0).pageSize()
+        positionX = pageSize.width() * 0.03
+        positionY = pageSize.height() * 0.02
+        title.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))
+        return title, positionY + title.sizeForText().height()
 
-    print("Done!")
-    pass
+    def create_notes(self):
+        print("Adding notes...")
+        notes = QgsLayoutItemLabel(self.layout)
+        notes.setText(self.map_parameters.notes)
+        notes.setFont(QFont(self.map_parameters.pluginFont, 11))
+        notes.adjustSizeToText()
+        self.layout.addLayoutItem(notes)
 
+        pageSize = self.layout.pageCollection().page(0).pageSize()
+        positionY = self.title.bottomPoint
+        positionX = pageSize.width() * 0.03
+        notes.attemptMove(QgsLayoutPoint(positionX, positionY, QgsUnitTypes.LayoutMillimeters))  # allows moving text box
+        return notes, positionY + notes.sizeForText().height()
+        pass
+
+    def export(self):
+        print("Exporting...")
+        exporter = QgsLayoutExporter(self.layout)
+        fname, fileExtension = os.path.splitext(self.map_parameters.filePath)
+        if self.map_parameters.preview:
+            base_path = os.path.join(QgsProject.instance().homePath())
+            preview_path = os.path.join(base_path, "preview.png")
+            self.layout.renderContext().setDpi(75)
+            exportError = exporter.exportToImage(preview_path, QgsLayoutExporter.ImageExportSettings())
+        else:
+            if fileExtension == ".pdf":
+                exportError = exporter.exportToPdf(self.map_parameters.filePath, QgsLayoutExporter.PdfExportSettings())
+            elif fileExtension == ".png" or fileExtension == ".jpg":
+                exportError = exporter.exportToImage(self.map_parameters.filePath, QgsLayoutExporter.ImageExportSettings())
+            elif fileExtension == ".svg":
+                exportError = exporter.exportToSvg(self.map_parameters.filePath, QgsLayoutExporter.SvgExportSettings())
+            else:
+                print("upsi...")
+                return -1
+        return exportError
+
+    def generate_map(self):
+        # === EXPORT ===
+        export_failure = export(layout, mapParameters.filePath, preview)
+        if preview:
+            base_path = os.path.join(QgsProject.instance().homePath())
+            preview_path = os.path.join(base_path, "preview.png")
+        else:
+            if export_failure == 0:
+                iface.messageBar().pushMessage("Sukces", "Plik eksportowano pomyślnie!", level=Qgis.Success, duration=3)
+
+        print("Done!")
+        pass
 
 class QuickPrint:
     """QGIS Plugin Implementation."""
@@ -432,32 +447,65 @@ class QuickPrint:
         base_path = os.path.join(QgsProject.instance().homePath())
         preview_path = os.path.join(base_path, "preview.png")
         scene = QGraphicsScene()
-        scene.setBackgroundBrush(QColor.fromRgb(235,235,235));
+        scene.setBackgroundBrush(QColor.fromRgb(235, 235, 235));
         image = QPixmap(preview_path)
         sceneRect = self.dlg.previewBox.mapToScene(self.dlg.previewBox.rect()).boundingRect()
-        image2 = image.scaled(sceneRect.width()-5, sceneRect.height()-5, 1, 1)
+        image2 = image.scaled(sceneRect.width() - 5, sceneRect.height() - 5, 1, 1)
         scene.addPixmap(image2)
         self.dlg.previewBox.setScene(scene)
+
     def openFile(self):
         filepath = self.dlg.outputFileBox.text()
-        if platform.system() == 'Darwin':       # macOS
+        if platform.system() == 'Darwin':  # macOS
             subprocess.call(('open', filepath))
-        elif platform.system() == 'Windows':    # Windows
+        elif platform.system() == 'Windows':  # Windows
             os.startfile(filepath)
-        else:                                   # linux variants
+        else:  # linux variants
             subprocess.call(('xdg-open', filepath))
         pass
+
+    def changeMapViewOption(self, indx):
+        if indx == 1:
+            self.dlg.customExtent.setCurrentIndex(1)
+            self.dlg.customExtentMode.setEnabled(True)
+        else:
+            pass
+        pass
+
+    def enableExtentList(self, indx):
+        if indx == 0:
+            self.dlg.customExtentMode.setEnabled(False)
+        else:
+            self.dlg.customExtentMode.setEnabled(True)
+
+    def zoomIn(self):
+        self.dlg.mapCanvas.setMapTool(self.toolZoomIn)
+
+    def zoomOut(self):
+        self.dlg.mapCanvas.setMapTool(self.toolZoomOut)
+
+    def pan(self):
+        self.dlg.mapCanvas.setMapTool(self.toolPan)
+
     def select_output_file(self):
         filename, _filter = QFileDialog.getSaveFileName(
-            self.dlg, "Wybierz plik do zapisu","wydruk", "Obraz (*.png *.jpg);;Dokument PDF (*.pdf);;Grafika wektorowa SVG (*.svg)")
+            self.dlg, "Wybierz plik do zapisu", "wydruk",
+            "Obraz (*.png *.jpg);;Dokument PDF (*.pdf);;Grafika wektorowa SVG (*.svg)")
         self.dlg.outputFileBox.setText(filename)
 
     def accept(self, preview=False):
         # zapis wartości
+        self.dlg.tabWidget.setCurrentIndex(0)
         fileName = self.dlg.outputFileBox.text()
         if not fileName and not preview:
             iface.messageBar().pushMessage("Error", "Ścieżka do pliku nie może być pusta!", level=Qgis.Critical)
         else:
+            customExtentButton = self.dlg.customExtent.currentIndex()
+            if customExtentButton:
+                customExtent = self.dlg.mapCanvas.extent()
+            else:
+                customExtent = iface.mapCanvas().fullExtent()
+            customExtentMode = self.dlg.customExtentMode.currentIndex()
             titleText = self.dlg.titleBox.text()
             annotationsText = self.dlg.annotationsBox.text()
             numericScale = self.dlg.numericScaleBox.checkState()
@@ -467,24 +515,14 @@ class QuickPrint:
             pageSize = self.dlg.sizeBox.currentText()
             orientation = self.dlg.orientationBox.currentIndex()  # 0 - pozioma, 1 - pionowa
 
-            mapParameters = QuickPrintFormContainer(titleText, numericScale, linearScale, legend, northArrow, annotationsText, orientation, pageSize, fileName)
-            #select_output_file(self)
-            generate_map(mapParameters, preview)
+            mapParameters = QuickPrintFormContainer(titleText, numericScale, linearScale, legend, northArrow,
+                                                    annotationsText, orientation, pageSize, fileName, customExtent, customExtentMode, preview)
+            plugin = QuickPrintLayout(mapParameters)
+            #generate_map(mapParameters, preview)
             if preview:
                 self.updatePreview()
             if self.dlg.openFileCheck.checkState() and not preview:
                 self.openFile()
-        """
-        DEBUG
-        print("Rozmiar strony: " + str(pageSize))
-        print("Orientacja: " + str(orientation))
-        print("Tytuł wydruku: " + titleText)
-        print("Adnotacje: " + annotationsText)
-        print("Skala numeryczna: " + str(numericScale))
-        print("Legenda: " + str(legend))
-        print("Strzałka północy: " + str(northArrow))
-        print("Orientacja: " + str(orientation))
-        """
 
     def run(self):
         """Run method that performs all the real work"""
@@ -495,11 +533,30 @@ class QuickPrint:
             self.first_start = False
             self.dlg = QuickPrintDialog()
             self.dlg.acceptButtons.accepted.connect(self.accept)
+            self.dlg.zoomInButton.clicked.connect(self.zoomIn)
+            self.dlg.zoomOutButton.clicked.connect(self.zoomOut)
+            self.dlg.panButton.clicked.connect(self.pan)
             self.dlg.outputFileButton.clicked.connect(self.select_output_file)
             self.dlg.previewButton.clicked.connect(lambda: self.accept(True))
+            self.dlg.tabWidget.currentChanged.connect(self.changeMapViewOption)
+            self.dlg.customExtent.currentIndexChanged.connect(self.enableExtentList)
+            self.dlg.mapCanvas.setCanvasColor(Qt.white)
+            # self.dlg.mapCanvas.enableAntiAliasing(True)
+            # create the map tools
+            self.toolPan = QgsMapToolPan(self.dlg.mapCanvas)
+            # self.toolPan.setAction(self.actionPan)
+            self.toolZoomIn = QgsMapToolZoom(self.dlg.mapCanvas, False)  # false = in
+            # self.toolZoomIn.setAction(self.actionZoomIn)
+            self.toolZoomOut = QgsMapToolZoom(self.dlg.mapCanvas, True)  # true = out
+            # self.toolZoomOut.setAction(self.actionZoomOut)
 
-
-
+        checked_layers = [layer.name() for layer in QgsProject().instance().layerTreeRoot().children() if
+                          layer.isVisible()]
+        # get map layer objects of checked layers by matching their names and store those in a list
+        # layersToAdd = [layer for layer in QgsProject().instance().mapLayers().values() if layer.name() in checked_layers]
+        layersToAdd = QgsProject().instance().mapLayers().values()
+        self.dlg.mapCanvas.setLayers(layersToAdd)
+        self.dlg.mapCanvas.setExtent(iface.mapCanvas().extent())
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
