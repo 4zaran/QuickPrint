@@ -105,32 +105,6 @@
        </property>
       </widget>
      </item>
-     <item row="2" column="2">
-      <widget class="QRadioButton" name="radioButton_2">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="text">
-        <string>Na osobnej stronie</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QRadioButton" name="radioButton">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="text">
-        <string>Na tej samej stronie</string>
-       </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
-       <property name="autoExclusive">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
      <item row="3" column="0">
       <widget class="QCheckBox" name="arrowBox">
        <property name="text">
@@ -263,78 +237,8 @@
         <bool>false</bool>
        </property>
        <property name="currentIndex">
-        <number>4</number>
+        <number>-1</number>
        </property>
-       <item>
-        <property name="text">
-         <string>A0</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>A1</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>A2</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>A3</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>A4</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>A5</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>A6</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>B0</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>B1</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>B2</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>B3</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>B4</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>B5</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>B6</string>
-        </property>
-       </item>
       </widget>
      </item>
      <item row="0" column="1">
