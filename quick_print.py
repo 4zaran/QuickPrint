@@ -177,29 +177,13 @@ class QuickPrintLayout:
         legend = QgsLayoutItemLegend(self.layout)
         legend.setTitle("Legenda")
         legend.setLinkedMap(self.map)
-        # adding layers
-        """
-        lyrs_to_add = [l for l in QgsProject().instance().layerTreeRoot().children() if l.isVisible()]
-        legend.setAutoUpdateModel(False)
-        group = legend.model().rootGroup()
-        group.clear()
-        for l in lyrs_to_add:
-            if l.nodeType() == 0:
-                subgroup = group.addGroup(l.name())
-                checked = l.checkedLayers()
-                for c in checked:
-                    subgroup.addLayer(c)
-            elif l.nodeType() == 1:
-                group.addLayer(l.layer())
-        #self.layout.addItem(legend)
-        """
         legend.adjustBoxSize()
         legend.refresh()
         # set style
         legend.setLegendFilterByMapEnabled(1)
         legend.setStyleFont(QgsLegendStyle.Title, QFont(self.map_parameters.pluginFont, 14, 81))
-        legend.setStyleFont(QgsLegendStyle.Group, QFont(self.map_parameters.pluginFont, 11, 75))
-        legend.setStyleFont(QgsLegendStyle.Subgroup, QFont(self.map_parameters.pluginFont, 10, 63))
+        legend.setStyleFont(QgsLegendStyle.Group, QFont(self.map_parameters.pluginFont, 11, 10))
+        legend.setStyleFont(QgsLegendStyle.Subgroup, QFont(self.map_parameters.pluginFont, 10, 10))
         legend.setStyleFont(QgsLegendStyle.SymbolLabel, QFont(self.map_parameters.pluginFont, 10))
         self.layout.addLayoutItem(legend)
         return legend
@@ -469,8 +453,6 @@ class QuickPrint:
                 action)
             self.iface.removeToolBarIcon(action)
 
-    # ===============
-
     def change_map_view_option(self, indx):
         if indx == 1:
             self.dlg.customExtent.setCurrentIndex(1)
@@ -506,28 +488,9 @@ class QuickPrint:
                          layer.name() in checked_layers]
         # add all layers
         # layers_to_add = QgsProject().instance().mapLayers().values()
-
-        # crs value of iface mapCanvas
-        iface_crs = iface.mapCanvas().mapSettings().destinationCrs().authid()
-        print(type(iface_crs))
-        # print("iface: " + str(iface_crs))
-
-        # print("okno przed ustawieniem: " + str(self.dlg.mapCanvas.mapSettings().destinationCrs()))
-        # self.dlg.mapCanvas.mapSettings().setDestinationCrs(iface_crs)
-        dest_crs = QgsCoordinateReferenceSystem()
-        dest_crs.createFromOgcWmsCrs(iface_crs)
-        dest_crs.createFromOgcWmsCrs("EPSG:2180")
-        print(dest_crs)
-        self.dlg.mapCanvas.mapSettings().setDestinationCrs(dest_crs)
-        print("okno po ustawieniu: " + str(self.dlg.mapCanvas.mapSettings().destinationCrs()))
+        self.dlg.mapCanvas.setLayers(layers_to_add)
 
         self.dlg.mapCanvas.setWheelFactor(1.1)
-        self.dlg.mapCanvas.refresh()
-
-        self.dlg.mapCanvas.setLayers(layers_to_add)
-        for layer in self.dlg.mapCanvas.layers():
-            print(layer.name() + " - " + str(layer.sourceCrs()))
-
         self.dlg.mapCanvas.setExtent(iface.mapCanvas().extent())
 
     def update_preview(self):
@@ -619,10 +582,7 @@ class QuickPrint:
                 if format.value == "A4":
                     self.dlg.sizeBox.setCurrentIndex(self.dlg.sizeBox.count()-1)
 
-
         self.setup_map_canvas()
-        # attempt of copying iface
-        # self.dlg.mapCanvas = deepcopy(iface.mapCanvas())
 
         # show the dialog
         self.dlg.show()
@@ -631,4 +591,4 @@ class QuickPrint:
         # See if OK was pressed
         if result:
             # show a message that exporting is in progress
-            iface.messageBar().pushMessage("Informacja", "Rozpoczęto generowanie pliku", level=Qgis.Info, duration=3)
+            pass
