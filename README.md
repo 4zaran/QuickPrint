@@ -15,7 +15,8 @@ QuickPrint jest wtyczką do oprogramowania QGIS umożliwiającą wygenerowanie w
   * Łatwość konfiguracji wydruku
   * Możliwość dodania elementów takich jak skala, legenda, strzałka północy czy adnotacji.
   * Obsługa wielu formatów wydruku
-  * Możliwośc wygenerowania szybkiego podglądu przed wydrukiem
+  * Możliwość wygenerowania szybkiego podglądu przed wydrukiem
+  * Auto-dopasowanie wydruku do mapy
   
 ## Zrzuty ekranu
 
