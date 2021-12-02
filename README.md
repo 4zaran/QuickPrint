@@ -20,4 +20,6 @@ QuickPrint jest wtyczką do oprogramowania QGIS umożliwiającą wygenerowanie w
   
 ## Zrzuty ekranu
 
-![Zrzut ekranu](https://i.imgur.com/Z2DCU83.png)
+![Zrzut ekranu](https://i.imgur.com/MJI9kVA.png)
+
+![Zrzut ekranu](https://i.imgur.com/rc5lPsw.png)
